@@ -1,0 +1,119 @@
+version: "3.8"
+
+# Example docker-compose configuration for aztec-collector
+# This shows how to run the collector alongside your Aztec node
+
+services:
+  # Your Aztec node (example - adjust to your actual setup)
+  aztec-node:
+    image: aztecprotocol/aztec:latest
+    container_name: aztec-node
+    ports:
+      - "8080:8080"   # Public RPC
+      - "8880:8880"   # Admin RPC
+    # Add your node configuration here
+    # volumes:
+    #   - ./aztec-data:/data
+    networks:
+      - aztec-network
+
+  # Aztec Collector
+  aztec-collector:
+    image: aztec-collector:latest
+    # Or build from source:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: aztec-collector
+    restart: unless-stopped
+    ports:
+      - "13285:13285"  # Metrics and API
+    environment:
+      # Required: Point to your Aztec node
+      - AZTEC_COLLECTOR_PROTOCOL_RPC_URL=http://aztec-node:8080
+      - AZTEC_COLLECTOR_PROTOCOL_ADMIN_URL=http://aztec-node:8880
+
+      # Collection interval (default: 30s)
+      - AZTEC_COLLECTOR_INTERVAL=30s
+
+      # API configuration
+      - AZTEC_COLLECTOR_API_ENABLED=true
+      - AZTEC_COLLECTOR_API_LISTEN=0.0.0.0:13285
+
+      # Health thresholds
+      - AZTEC_COLLECTOR_HEALTH_MAX_BLOCKS_BEHIND=100
+      - AZTEC_COLLECTOR_HEALTH_MAX_BLOCKS_AHEAD=10
+
+      # Reference service - Use external RPC for block height comparison
+      - AZTEC_COLLECTOR_REF_SERVICE_ENABLED=true
+      - AZTEC_COLLECTOR_REF_SERVICE_USE_EXTERNAL_RPC=true
+      - AZTEC_COLLECTOR_REF_SERVICE_EXTERNAL_RPC_URL=http://reference-aztec-node:8080
+      - AZTEC_COLLECTOR_REF_SERVICE_TIMEOUT=5s
+
+      # JSON log path (inside container)
+      - AZTEC_COLLECTOR_JSONLOG_PATH=/data/aztec-collector.json
+    volumes:
+      # Persist the JSON log
+      - ./collector-data:/data
+    depends_on:
+      - aztec-node
+    networks:
+      - aztec-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:13285/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Reference node for block height comparison
+  # Uncomment if you want to run your own reference node
+  # reference-aztec-node:
+  #   image: aztecprotocol/aztec:latest
+  #   container_name: reference-aztec-node
+  #   ports:
+  #     - "8081:8080"
+  #   networks:
+  #     - aztec-network
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    depends_on:
+      - aztec-collector
+    networks:
+      - aztec-network
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - aztec-network
+
+networks:
+  aztec-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+

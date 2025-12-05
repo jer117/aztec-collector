@@ -1,0 +1,48 @@
+# Build outputs
+build/
+dist/
+
+# Binary
+aztec-collector
+*.exe
+
+# Go
+*.test
+*.out
+coverage.out
+coverage.html
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config and logs (keep examples)
+config.yaml
+!example-config.yaml
+*.json
+!*.example.json
+
+# Dependencies
+vendor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+.docker/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+

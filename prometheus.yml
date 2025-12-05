@@ -1,0 +1,21 @@
+# Prometheus configuration for aztec-collector
+# This file should be mounted into the Prometheus container
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Scrape the aztec-collector metrics
+  - job_name: 'aztec-collector'
+    static_configs:
+      - targets: ['aztec-collector:13285']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Optional: Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
