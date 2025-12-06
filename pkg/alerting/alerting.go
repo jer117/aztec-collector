@@ -16,14 +16,16 @@ import (
 type AlertType string
 
 const (
-	AlertNodeNotReady    AlertType = "node_not_ready"
-	AlertNodeNotSynced   AlertType = "node_not_synced"
-	AlertBlocksBehind    AlertType = "blocks_behind"
-	AlertBlocksAhead     AlertType = "blocks_ahead"
-	AlertLowPeers        AlertType = "low_peers"
-	AlertProofLag        AlertType = "proof_lag"
-	AlertConnectionError AlertType = "connection_error"
-	AlertRecovered       AlertType = "recovered"
+	AlertNodeNotReady      AlertType = "node_not_ready"
+	AlertNodeNotSynced     AlertType = "node_not_synced"
+	AlertBlocksBehind      AlertType = "blocks_behind"
+	AlertBlocksAhead       AlertType = "blocks_ahead"
+	AlertLowPeers          AlertType = "low_peers"
+	AlertProofLag          AlertType = "proof_lag"
+	AlertConnectionError   AlertType = "connection_error"
+	AlertMissedAttestation AlertType = "missed_attestation"
+	AlertMissedProposal    AlertType = "missed_proposal"
+	AlertRecovered         AlertType = "recovered"
 )
 
 // AlertLevel represents the severity of an alert
@@ -38,14 +40,17 @@ const (
 
 // Alert represents an alert to be sent
 type Alert struct {
-	Type        AlertType  `json:"type"`
-	Level       AlertLevel `json:"level"`
-	Title       string     `json:"title"`
-	Message     string     `json:"message"`
-	NodeName    string     `json:"node_name,omitempty"`
-	BlockHeight int64      `json:"block_height,omitempty"`
-	BlocksBehind int64     `json:"blocks_behind,omitempty"`
-	Timestamp   time.Time  `json:"timestamp"`
+	Type             AlertType  `json:"type"`
+	Level            AlertLevel `json:"level"`
+	Title            string     `json:"title"`
+	Message          string     `json:"message"`
+	NodeName         string     `json:"node_name,omitempty"`
+	BlockHeight      int64      `json:"block_height,omitempty"`
+	BlocksBehind     int64      `json:"blocks_behind,omitempty"`
+	ValidatorAddress string     `json:"validator_address,omitempty"`
+	Slot             string     `json:"slot,omitempty"`
+	MissedStreak     int64      `json:"missed_streak,omitempty"`
+	Timestamp        time.Time  `json:"timestamp"`
 }
 
 // AlertConfig represents the alerting configuration

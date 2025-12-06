@@ -21,7 +21,20 @@ type Config struct {
 	Health     HealthConfig          `yaml:"health" mapstructure:"health"`
 	JSONLog    JSONLogConfig         `yaml:"jsonlog" mapstructure:"jsonlog"`
 	RefService RefServiceConfig      `yaml:"ref_service" mapstructure:"ref_service"`
+	Validator  ValidatorConfig       `yaml:"validator" mapstructure:"validator"`
 	Alerting   *alerting.AlertConfig `yaml:"alerting,omitempty" mapstructure:"alerting"`
+}
+
+// ValidatorConfig represents validator monitoring configuration
+type ValidatorConfig struct {
+	// Enable validator monitoring
+	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
+	// Your validator address to monitor (e.g., "0x1234...")
+	Address string `yaml:"address" mapstructure:"address"`
+	// Alert on any missed attestation (currentStreak > 0)
+	AlertOnMissedAttestation bool `yaml:"alert_on_missed_attestation" mapstructure:"alert_on_missed_attestation"`
+	// Alert on any missed proposal (currentStreak > 0)
+	AlertOnMissedProposal bool `yaml:"alert_on_missed_proposal" mapstructure:"alert_on_missed_proposal"`
 }
 
 // ProtocolConfig represents protocol-specific configuration
@@ -90,6 +103,12 @@ func DefaultConfig() *Config {
 			Timeout:        5 * time.Second,
 			UseExternalRPC: false,
 			ExternalRPCURL: "",
+		},
+		Validator: ValidatorConfig{
+			Enabled:                  false,
+			Address:                  "",
+			AlertOnMissedAttestation: true,
+			AlertOnMissedProposal:    true,
 		},
 		Alerting: alerting.DefaultAlertConfig(),
 	}
@@ -177,6 +196,12 @@ func setViperDefaults(v *viper.Viper) {
 	v.SetDefault("ref_service.use_external_rpc", false)
 	v.SetDefault("ref_service.external_rpc_url", "")
 
+	// Validator monitoring defaults
+	v.SetDefault("validator.enabled", false)
+	v.SetDefault("validator.address", "")
+	v.SetDefault("validator.alert_on_missed_attestation", true)
+	v.SetDefault("validator.alert_on_missed_proposal", true)
+
 	// Alerting defaults
 	v.SetDefault("alerting.enabled", false)
 	v.SetDefault("alerting.cooldown", "5m")
@@ -256,6 +281,20 @@ func applyEnvOverrides(config *Config) {
 	}
 	if v := os.Getenv("AZTEC_COLLECTOR_REF_SERVICE_EXTERNAL_RPC_URL"); v != "" {
 		config.RefService.ExternalRPCURL = v
+	}
+
+	// Validator monitoring overrides
+	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ENABLED"); v != "" {
+		config.Validator.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ADDRESS"); v != "" {
+		config.Validator.Address = v
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_ATTESTATION"); v != "" {
+		config.Validator.AlertOnMissedAttestation = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_PROPOSAL"); v != "" {
+		config.Validator.AlertOnMissedProposal = strings.ToLower(v) == "true" || v == "1"
 	}
 
 	// Alerting overrides
