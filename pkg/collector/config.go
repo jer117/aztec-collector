@@ -8,18 +8,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aztec-collector/pkg/alerting"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
 // Config represents the collector configuration
 type Config struct {
-	Protocol   ProtocolConfig   `yaml:"protocol" mapstructure:"protocol"`
-	Interval   time.Duration    `yaml:"interval" mapstructure:"interval"`
-	API        APIConfig        `yaml:"api" mapstructure:"api"`
-	Health     HealthConfig     `yaml:"health" mapstructure:"health"`
-	JSONLog    JSONLogConfig    `yaml:"jsonlog" mapstructure:"jsonlog"`
-	RefService RefServiceConfig `yaml:"ref_service" mapstructure:"ref_service"`
+	Protocol   ProtocolConfig        `yaml:"protocol" mapstructure:"protocol"`
+	Interval   time.Duration         `yaml:"interval" mapstructure:"interval"`
+	API        APIConfig             `yaml:"api" mapstructure:"api"`
+	Health     HealthConfig          `yaml:"health" mapstructure:"health"`
+	JSONLog    JSONLogConfig         `yaml:"jsonlog" mapstructure:"jsonlog"`
+	RefService RefServiceConfig      `yaml:"ref_service" mapstructure:"ref_service"`
+	Alerting   *alerting.AlertConfig `yaml:"alerting,omitempty" mapstructure:"alerting"`
 }
 
 // ProtocolConfig represents protocol-specific configuration
@@ -89,6 +91,7 @@ func DefaultConfig() *Config {
 			UseExternalRPC: false,
 			ExternalRPCURL: "",
 		},
+		Alerting: alerting.DefaultAlertConfig(),
 	}
 }
 
@@ -173,6 +176,11 @@ func setViperDefaults(v *viper.Viper) {
 	v.SetDefault("ref_service.timeout", "5s")
 	v.SetDefault("ref_service.use_external_rpc", false)
 	v.SetDefault("ref_service.external_rpc_url", "")
+
+	// Alerting defaults
+	v.SetDefault("alerting.enabled", false)
+	v.SetDefault("alerting.cooldown", "5m")
+	v.SetDefault("alerting.node_name", "aztec-node")
 }
 
 // applyEnvOverrides applies environment variable overrides explicitly
@@ -248,6 +256,84 @@ func applyEnvOverrides(config *Config) {
 	}
 	if v := os.Getenv("AZTEC_COLLECTOR_REF_SERVICE_EXTERNAL_RPC_URL"); v != "" {
 		config.RefService.ExternalRPCURL = v
+	}
+
+	// Alerting overrides
+	if config.Alerting == nil {
+		config.Alerting = alerting.DefaultAlertConfig()
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_ENABLED"); v != "" {
+		config.Alerting.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_COOLDOWN"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			config.Alerting.Cooldown = d
+		}
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_NODE_NAME"); v != "" {
+		config.Alerting.NodeName = v
+	}
+
+	// Slack alerting
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_SLACK_ENABLED"); v != "" {
+		if config.Alerting.Slack == nil {
+			config.Alerting.Slack = &alerting.SlackConfig{}
+		}
+		config.Alerting.Slack.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_SLACK_WEBHOOK_URL"); v != "" {
+		if config.Alerting.Slack == nil {
+			config.Alerting.Slack = &alerting.SlackConfig{}
+		}
+		config.Alerting.Slack.WebhookURL = v
+	}
+
+	// Discord alerting
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_DISCORD_ENABLED"); v != "" {
+		if config.Alerting.Discord == nil {
+			config.Alerting.Discord = &alerting.DiscordConfig{}
+		}
+		config.Alerting.Discord.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_DISCORD_WEBHOOK_URL"); v != "" {
+		if config.Alerting.Discord == nil {
+			config.Alerting.Discord = &alerting.DiscordConfig{}
+		}
+		config.Alerting.Discord.WebhookURL = v
+	}
+
+	// Telegram alerting
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_TELEGRAM_ENABLED"); v != "" {
+		if config.Alerting.Telegram == nil {
+			config.Alerting.Telegram = &alerting.TelegramConfig{}
+		}
+		config.Alerting.Telegram.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_TELEGRAM_BOT_TOKEN"); v != "" {
+		if config.Alerting.Telegram == nil {
+			config.Alerting.Telegram = &alerting.TelegramConfig{}
+		}
+		config.Alerting.Telegram.BotToken = v
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_TELEGRAM_CHAT_ID"); v != "" {
+		if config.Alerting.Telegram == nil {
+			config.Alerting.Telegram = &alerting.TelegramConfig{}
+		}
+		config.Alerting.Telegram.ChatID = v
+	}
+
+	// Generic webhook alerting
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_GENERIC_ENABLED"); v != "" {
+		if config.Alerting.Generic == nil {
+			config.Alerting.Generic = &alerting.GenericConfig{}
+		}
+		config.Alerting.Generic.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("AZTEC_COLLECTOR_ALERTING_GENERIC_WEBHOOK_URL"); v != "" {
+		if config.Alerting.Generic == nil {
+			config.Alerting.Generic = &alerting.GenericConfig{}
+		}
+		config.Alerting.Generic.WebhookURL = v
 	}
 }
 

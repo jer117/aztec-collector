@@ -20,6 +20,7 @@ The Aztec Collector queries Aztec nodes via JSON-RPC and collects metrics about:
 - **State API**: Returns full node state as JSON at `/state` endpoint
 - **JSON Logging**: Writes collected state to a JSON file for debugging
 - **Reference Service**: Compare block height against external Aztec nodes or reference services
+- **Alerting**: Send alerts to Slack, Discord, Telegram, or custom webhooks when health thresholds are breached
 - **Environment Variable Override**: All config options can be overridden via environment variables (perfect for Docker/Kubernetes)
 
 ## Installation
@@ -85,8 +86,8 @@ api:
   listen: "0.0.0.0:13285"
 
 health:
-  min_peers: 1
-  max_blocks_behind: 100
+  min_peers: 3
+  max_blocks_behind: 50
   max_blocks_ahead: 10
 
 jsonlog:
@@ -127,6 +128,18 @@ AZTEC_COLLECTOR_<SECTION>_<KEY>
 | `AZTEC_COLLECTOR_REF_SERVICE_USE_EXTERNAL_RPC` | Use external RPC as reference | `false` |
 | `AZTEC_COLLECTOR_REF_SERVICE_EXTERNAL_RPC_URL` | External Aztec RPC URL | `` |
 | `AZTEC_COLLECTOR_REF_SERVICE_TIMEOUT` | Reference query timeout | `5s` |
+| `AZTEC_COLLECTOR_ALERTING_ENABLED` | Enable alerting | `false` |
+| `AZTEC_COLLECTOR_ALERTING_COOLDOWN` | Cooldown between alerts | `5m` |
+| `AZTEC_COLLECTOR_ALERTING_NODE_NAME` | Node identifier in alerts | `aztec-node` |
+| `AZTEC_COLLECTOR_ALERTING_SLACK_ENABLED` | Enable Slack alerts | `false` |
+| `AZTEC_COLLECTOR_ALERTING_SLACK_WEBHOOK_URL` | Slack webhook URL | `` |
+| `AZTEC_COLLECTOR_ALERTING_DISCORD_ENABLED` | Enable Discord alerts | `false` |
+| `AZTEC_COLLECTOR_ALERTING_DISCORD_WEBHOOK_URL` | Discord webhook URL | `` |
+| `AZTEC_COLLECTOR_ALERTING_TELEGRAM_ENABLED` | Enable Telegram alerts | `false` |
+| `AZTEC_COLLECTOR_ALERTING_TELEGRAM_BOT_TOKEN` | Telegram bot token | `` |
+| `AZTEC_COLLECTOR_ALERTING_TELEGRAM_CHAT_ID` | Telegram chat ID | `` |
+| `AZTEC_COLLECTOR_ALERTING_GENERIC_ENABLED` | Enable generic webhook | `false` |
+| `AZTEC_COLLECTOR_ALERTING_GENERIC_WEBHOOK_URL` | Generic webhook URL | `` |
 
 ### Docker Compose Example
 
@@ -252,6 +265,143 @@ aztec-collector/
 ├── go.mod                    # Go module file
 ├── Makefile                  # Build automation
 └── README.md                 # This file
+```
+
+## Alerting
+
+The collector can send alerts when health thresholds are breached. Alerts are sent via webhooks to:
+
+- **Slack** - Using incoming webhooks
+- **Discord** - Using Discord webhooks
+- **Telegram** - Using a Telegram bot
+- **Generic Webhook** - For custom integrations (PagerDuty, Opsgenie, etc.)
+
+### Alert Types
+
+| Alert | Trigger | Severity |
+|-------|---------|----------|
+| `node_not_ready` | Node is not ready to serve requests | Error |
+| `node_not_synced` | Node is currently syncing | Warning |
+| `blocks_behind` | Node is behind reference by more than threshold | Error |
+| `blocks_ahead` | Node is ahead of reference by more than threshold | Warning |
+| `proof_lag` | Large gap between latest and proven blocks | Warning |
+| `recovered` | A previous alert condition has been resolved | Info |
+
+### Alerting Configuration Example
+
+```yaml
+alerting:
+  enabled: true
+  cooldown: 5m
+  node_name: "prod-aztec-01"
+  
+  slack:
+    enabled: true
+    webhook_url: "https://hooks.slack.com/services/TXXXXX/BXXXXX/your-token"
+    channel: "#alerts"
+    
+  discord:
+    enabled: true
+    webhook_url: "https://discord.com/api/webhooks/your-id/your-token"
+    
+  telegram:
+    enabled: true
+    bot_token: "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+    chat_id: "-1001234567890"
+```
+
+### Getting Webhook URLs
+
+**Slack:**
+1. Go to [Slack API Apps](https://api.slack.com/apps)
+2. Create a new app or select existing
+3. Enable "Incoming Webhooks"
+4. Add a new webhook to your workspace
+
+**Discord:**
+1. Open Server Settings > Integrations
+2. Create a new webhook
+3. Copy the webhook URL
+
+**Telegram:**
+1. Message [@BotFather](https://t.me/botfather) to create a bot
+2. Get the bot token
+3. Add the bot to your group/channel
+4. Get the chat ID using `https://api.telegram.org/bot<TOKEN>/getUpdates`
+
+## Tailing Logs
+
+### Docker Compose
+
+```bash
+# Follow logs from the collector
+docker compose logs -f aztec-collector
+
+# Follow logs with timestamps
+docker compose logs -f --timestamps aztec-collector
+
+# Show last 100 lines and follow
+docker compose logs -f --tail 100 aztec-collector
+
+# Follow logs from all services
+docker compose logs -f
+```
+
+### Docker
+
+```bash
+# Follow logs from a running container
+docker logs -f aztec-collector
+
+# Show last 50 lines and follow
+docker logs -f --tail 50 aztec-collector
+
+# With timestamps
+docker logs -f --timestamps aztec-collector
+```
+
+### Kubernetes
+
+```bash
+# Follow logs from a pod
+kubectl logs -f deployment/aztec-collector
+
+# Follow logs with timestamps
+kubectl logs -f --timestamps deployment/aztec-collector
+
+# Follow logs from all pods with the label
+kubectl logs -f -l app=aztec-collector
+
+# Stream logs from a specific container
+kubectl logs -f deployment/aztec-collector -c aztec-collector
+```
+
+### systemd (if running as a service)
+
+```bash
+# Follow journal logs
+journalctl -u aztec-collector -f
+
+# Show last 100 lines and follow
+journalctl -u aztec-collector -n 100 -f
+
+# With full output (no truncation)
+journalctl -u aztec-collector -f --no-pager
+```
+
+### JSON Log File
+
+The collector writes state to a JSON log file that can be monitored:
+
+```bash
+# Watch the JSON log file for changes
+watch -n 5 cat /path/to/aztec-collector.json
+
+# Use jq to format and follow
+tail -f /path/to/aztec-collector.json | jq .
+
+# Check specific fields
+watch -n 5 'jq ".health, .chain.headHeight" /path/to/aztec-collector.json'
 ```
 
 ## License

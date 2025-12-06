@@ -91,6 +91,92 @@ ref_service:
 #   network: "mainnet"
 #   timeout: 5s
 
+# Alerting configuration
+# Send alerts when node health thresholds are breached
+alerting:
+  # Enable/disable alerting globally
+  # Env: AZTEC_COLLECTOR_ALERTING_ENABLED
+  enabled: false
+  # Cooldown between alerts of the same type (prevents spam)
+  # Env: AZTEC_COLLECTOR_ALERTING_COOLDOWN
+  cooldown: 5m
+  # Node name to include in alerts for identification
+  # Env: AZTEC_COLLECTOR_ALERTING_NODE_NAME
+  node_name: "my-aztec-node"
+
+  # Slack webhook configuration
+  slack:
+    # Env: AZTEC_COLLECTOR_ALERTING_SLACK_ENABLED
+    enabled: false
+    # Env: AZTEC_COLLECTOR_ALERTING_SLACK_WEBHOOK_URL
+    webhook_url: ""
+    # Optional: override channel
+    channel: ""
+    # Optional: override username
+    username: "Aztec Collector"
+
+  # Discord webhook configuration
+  discord:
+    # Env: AZTEC_COLLECTOR_ALERTING_DISCORD_ENABLED
+    enabled: false
+    # Env: AZTEC_COLLECTOR_ALERTING_DISCORD_WEBHOOK_URL
+    webhook_url: ""
+    # Optional: bot username
+    username: "Aztec Collector"
+    # Optional: bot avatar URL
+    avatar_url: ""
+
+  # Telegram bot configuration
+  telegram:
+    # Env: AZTEC_COLLECTOR_ALERTING_TELEGRAM_ENABLED
+    enabled: false
+    # Env: AZTEC_COLLECTOR_ALERTING_TELEGRAM_BOT_TOKEN
+    bot_token: ""
+    # Env: AZTEC_COLLECTOR_ALERTING_TELEGRAM_CHAT_ID
+    chat_id: ""
+
+  # Generic webhook (for custom integrations like PagerDuty, Opsgenie, etc.)
+  generic:
+    # Env: AZTEC_COLLECTOR_ALERTING_GENERIC_ENABLED
+    enabled: false
+    # Env: AZTEC_COLLECTOR_ALERTING_GENERIC_WEBHOOK_URL
+    webhook_url: ""
+    # Optional: custom headers
+    headers: {}
+    # Optional: HTTP method (default: POST)
+    method: "POST"
+
+# --- Example alerting configurations ---
+
+# Example: Slack alerting
+# alerting:
+#   enabled: true
+#   cooldown: 5m
+#   node_name: "prod-aztec-01"
+#   slack:
+#     enabled: true
+#     webhook_url: "https://hooks.slack.com/services/TXXXXX/BXXXXX/your-webhook-token-here"
+#     channel: "#alerts"
+
+# Example: Discord alerting
+# alerting:
+#   enabled: true
+#   cooldown: 5m
+#   node_name: "prod-aztec-01"
+#   discord:
+#     enabled: true
+#     webhook_url: "https://discord.com/api/webhooks/your-webhook-id/your-webhook-token"
+
+# Example: Telegram alerting
+# alerting:
+#   enabled: true
+#   cooldown: 5m
+#   node_name: "prod-aztec-01"
+#   telegram:
+#     enabled: true
+#     bot_token: "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+#     chat_id: "-1001234567890"
+
 # --- Docker Compose environment variable examples ---
 # These can be set in your docker-compose.yml:
 #
@@ -102,3 +188,15 @@ ref_service:
 #   - AZTEC_COLLECTOR_REF_SERVICE_ENABLED=true
 #   - AZTEC_COLLECTOR_REF_SERVICE_USE_EXTERNAL_RPC=true
 #   - AZTEC_COLLECTOR_REF_SERVICE_EXTERNAL_RPC_URL=http://reference-node:8080
+#
+# Alerting environment variables:
+#   - AZTEC_COLLECTOR_ALERTING_ENABLED=true
+#   - AZTEC_COLLECTOR_ALERTING_COOLDOWN=5m
+#   - AZTEC_COLLECTOR_ALERTING_NODE_NAME=prod-aztec-01
+#   - AZTEC_COLLECTOR_ALERTING_SLACK_ENABLED=true
+#   - AZTEC_COLLECTOR_ALERTING_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+#   - AZTEC_COLLECTOR_ALERTING_DISCORD_ENABLED=true
+#   - AZTEC_COLLECTOR_ALERTING_DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+#   - AZTEC_COLLECTOR_ALERTING_TELEGRAM_ENABLED=true
+#   - AZTEC_COLLECTOR_ALERTING_TELEGRAM_BOT_TOKEN=123456789:ABC...
+#   - AZTEC_COLLECTOR_ALERTING_TELEGRAM_CHAT_ID=-1001234567890
