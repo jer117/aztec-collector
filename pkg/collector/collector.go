@@ -7,10 +7,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/aztec-collector/pkg/alerting"
+	"github.com/aztec-collector/pkg/aztec"
 	"github.com/aztec-collector/pkg/jsonrpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -192,6 +194,14 @@ func (c *Collector) collect() {
 		c.metrics.RecordCollectionError("getReferenceHeight")
 	}
 
+	// Collect validator stats if enabled
+	if c.config.Validator.Enabled {
+		if err := c.collectValidatorStats(state); err != nil {
+			c.logger.Printf("Error collecting validator stats: %v", err)
+			c.metrics.RecordCollectionError("getValidatorsStats")
+		}
+	}
+
 	// Evaluate health
 	c.evaluateHealth(state)
 
@@ -263,6 +273,12 @@ func (c *Collector) collectReadyStatus(state *CollectorState) error {
 	}
 
 	state.Node.IsReady = ready
+	
+	// If node is ready, it's considered synced
+	if ready {
+		state.Node.IsSyncing = false
+	}
+	
 	return nil
 }
 
@@ -318,6 +334,67 @@ func (c *Collector) collectReferenceHeight(state *CollectorState) error {
 
 	c.logger.Printf("Reference height: %d (local: %d)", height, state.Chain.HeadHeight)
 	return nil
+}
+
+// collectValidatorStats collects validator statistics and checks for missed attestations/proposals
+func (c *Collector) collectValidatorStats(state *CollectorState) error {
+	stats, err := c.rpc.GetValidatorsStats()
+	if err != nil {
+		return err
+	}
+
+	state.Aztec.ValidatorsStats = stats
+
+	// Check for our validator's missed attestations/proposals
+	if c.config.Validator.Address != "" && stats.Stats != nil {
+		// Normalize the address for lookup (lowercase)
+		addr := strings.ToLower(c.config.Validator.Address)
+		
+		if validatorStats, ok := stats.Stats[addr]; ok {
+			c.checkValidatorAlerts(validatorStats, stats.LastProcessedSlot)
+		} else {
+			c.logger.Printf("Validator %s not found in stats", c.config.Validator.Address)
+		}
+	}
+
+	return nil
+}
+
+// checkValidatorAlerts checks for missed attestations/proposals and sends alerts
+func (c *Collector) checkValidatorAlerts(stats *aztec.ValidatorStats, lastSlot string) {
+	// Check for missed attestations
+	if c.config.Validator.AlertOnMissedAttestation && stats.MissedAttestations != nil {
+		if stats.MissedAttestations.CurrentStreak > 0 {
+			c.sendAlert(alerting.Alert{
+				Type:             alerting.AlertMissedAttestation,
+				Level:            alerting.AlertLevelError,
+				Title:            "Missed Attestation",
+				Message:          fmt.Sprintf("Validator %s has missed %d attestation(s) in a row!", stats.Address, stats.MissedAttestations.CurrentStreak),
+				ValidatorAddress: stats.Address,
+				Slot:             lastSlot,
+				MissedStreak:     stats.MissedAttestations.CurrentStreak,
+			})
+		} else if c.alerter != nil && c.alerter.IsAlertActive(alerting.AlertMissedAttestation) {
+			c.sendRecoveryAlert(alerting.AlertMissedAttestation, fmt.Sprintf("Validator %s is now attesting normally", stats.Address))
+		}
+	}
+
+	// Check for missed proposals
+	if c.config.Validator.AlertOnMissedProposal && stats.MissedProposals != nil {
+		if stats.MissedProposals.CurrentStreak > 0 {
+			c.sendAlert(alerting.Alert{
+				Type:             alerting.AlertMissedProposal,
+				Level:            alerting.AlertLevelCritical,
+				Title:            "Missed Block Proposal",
+				Message:          fmt.Sprintf("Validator %s has missed %d block proposal(s) in a row!", stats.Address, stats.MissedProposals.CurrentStreak),
+				ValidatorAddress: stats.Address,
+				Slot:             lastSlot,
+				MissedStreak:     stats.MissedProposals.CurrentStreak,
+			})
+		} else if c.alerter != nil && c.alerter.IsAlertActive(alerting.AlertMissedProposal) {
+			c.sendRecoveryAlert(alerting.AlertMissedProposal, fmt.Sprintf("Validator %s is now proposing normally", stats.Address))
+		}
+	}
 }
 
 // evaluateHealth evaluates the health of the node based on collected state

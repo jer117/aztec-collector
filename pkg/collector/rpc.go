@@ -268,8 +268,8 @@ func (r *AztecRPC) GetCurrentBaseFees() (*aztec.CurrentBaseFees, error) {
 }
 
 // GetValidatorsStats returns validator statistics
-func (r *AztecRPC) GetValidatorsStats() (*aztec.ValidatorStats, error) {
-	var result aztec.ValidatorStats
+func (r *AztecRPC) GetValidatorsStats() (*aztec.ValidatorsStatsResponse, error) {
+	var result aztec.ValidatorsStatsResponse
 	if err := r.client.Call(MethodGetValidatorsStats, []interface{}{}, &result); err != nil {
 		return nil, fmt.Errorf("GetValidatorsStats: %w", err)
 	}

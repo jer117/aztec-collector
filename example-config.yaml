@@ -32,10 +32,10 @@ api:
 health:
   # Minimum peer count to consider the node healthy
   # Env: AZTEC_COLLECTOR_HEALTH_MIN_PEERS
-  min_peers: 1
+  min_peers: 0
   # Maximum blocks behind reference before considering the node unhealthy
   # Env: AZTEC_COLLECTOR_HEALTH_MAX_BLOCKS_BEHIND
-  max_blocks_behind: 100
+  max_blocks_behind: 0
   # Maximum blocks ahead of reference before considering the node unhealthy
   # Env: AZTEC_COLLECTOR_HEALTH_MAX_BLOCKS_AHEAD
   max_blocks_ahead: 10
@@ -90,6 +90,29 @@ ref_service:
 #   protocol: "aztec"
 #   network: "mainnet"
 #   timeout: 5s
+
+# Validator monitoring configuration
+# Monitor your validator for missed attestations/proposals
+validator:
+  # Enable validator monitoring
+  # Env: AZTEC_COLLECTOR_VALIDATOR_ENABLED
+  enabled: false
+  # Your validator address (lowercase)
+  # Env: AZTEC_COLLECTOR_VALIDATOR_ADDRESS
+  address: ""
+  # Alert when attestations are missed
+  # Env: AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_ATTESTATION
+  alert_on_missed_attestation: true
+  # Alert when block proposals are missed
+  # Env: AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_PROPOSAL
+  alert_on_missed_proposal: true
+
+# --- Example validator configuration ---
+# validator:
+#   enabled: true
+#   address: "0x04784a359ac474e8814a9f8fbf7590d2eb5267ee"
+#   alert_on_missed_attestation: true
+#   alert_on_missed_proposal: true
 
 # Alerting configuration
 # Send alerts when node health thresholds are breached
@@ -200,3 +223,9 @@ alerting:
 #   - AZTEC_COLLECTOR_ALERTING_TELEGRAM_ENABLED=true
 #   - AZTEC_COLLECTOR_ALERTING_TELEGRAM_BOT_TOKEN=123456789:ABC...
 #   - AZTEC_COLLECTOR_ALERTING_TELEGRAM_CHAT_ID=-1001234567890
+#
+# Validator monitoring environment variables:
+#   - AZTEC_COLLECTOR_VALIDATOR_ENABLED=true
+#   - AZTEC_COLLECTOR_VALIDATOR_ADDRESS=0x04784a359ac474e8814a9f8fbf7590d2eb5267ee
+#   - AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_ATTESTATION=true
+#   - AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_PROPOSAL=true

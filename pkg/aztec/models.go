@@ -180,13 +180,47 @@ type ProtocolContractAddresses struct {
 	MultiCallEntrypoint string `json:"multiCallEntrypoint,omitempty"`
 }
 
-// ValidatorStats represents statistics about validators
-type ValidatorStats struct {
-	Validators []ValidatorInfo `json:"validators,omitempty"`
-	Total      int             `json:"total,omitempty"`
+// ValidatorsStatsResponse represents the response from node_getValidatorsStats
+type ValidatorsStatsResponse struct {
+	Stats             map[string]*ValidatorStats `json:"stats"`
+	LastProcessedSlot string                     `json:"lastProcessedSlot"`
+	InitialSlot       string                     `json:"initialSlot"`
+	SlotWindow        int64                      `json:"slotWindow"`
 }
 
-// ValidatorInfo represents information about a single validator
+// ValidatorStats represents statistics about a single validator
+type ValidatorStats struct {
+	Address            string              `json:"address"`
+	LastProposal       *SlotEvent          `json:"lastProposal,omitempty"`
+	LastAttestation    *SlotEvent          `json:"lastAttestation,omitempty"`
+	TotalSlots         int64               `json:"totalSlots"`
+	MissedProposals    *MissedStats        `json:"missedProposals"`
+	MissedAttestations *MissedStats        `json:"missedAttestations"`
+	History            []SlotHistoryEntry  `json:"history,omitempty"`
+}
+
+// SlotEvent represents a slot event (proposal or attestation)
+type SlotEvent struct {
+	Timestamp string `json:"timestamp"`
+	Slot      string `json:"slot"`
+	Date      string `json:"date"`
+}
+
+// MissedStats represents missed proposal/attestation statistics
+type MissedStats struct {
+	CurrentStreak int64   `json:"currentStreak"`
+	Rate          float64 `json:"rate"`
+	Count         int64   `json:"count"`
+	Total         int64   `json:"total"`
+}
+
+// SlotHistoryEntry represents a single slot history entry
+type SlotHistoryEntry struct {
+	Slot   string `json:"slot"`
+	Status string `json:"status"` // block-mined, attestation-sent, block-missed, attestation-missed, block-proposed
+}
+
+// ValidatorInfo is a simplified view of validator status (for backwards compatibility)
 type ValidatorInfo struct {
 	Address       string `json:"address,omitempty"`
 	Stake         string `json:"stake,omitempty"`
@@ -204,14 +238,14 @@ type CurrentBaseFees struct {
 
 // AztecState combines all Aztec-specific state for collection
 type AztecState struct {
-	L2Tips            *L2Tips               `json:"l2Tips,omitempty"`
-	LatestBlock       *L2Block              `json:"latestBlock,omitempty"`
-	NodeInfo          *NodeInfo             `json:"nodeInfo,omitempty"`
-	SyncStatus        *WorldStateSyncStatus `json:"syncStatus,omitempty"`
-	PendingTxCount    int                   `json:"pendingTxCount,omitempty"`
-	CurrentBaseFees   *CurrentBaseFees      `json:"currentBaseFees,omitempty"`
-	ValidatorStats    *ValidatorStats       `json:"validatorStats,omitempty"`
-	CollectionTime    time.Time             `json:"collectionTime"`
+	L2Tips            *L2Tips                  `json:"l2Tips,omitempty"`
+	LatestBlock       *L2Block                 `json:"latestBlock,omitempty"`
+	NodeInfo          *NodeInfo                `json:"nodeInfo,omitempty"`
+	SyncStatus        *WorldStateSyncStatus    `json:"syncStatus,omitempty"`
+	PendingTxCount    int                      `json:"pendingTxCount,omitempty"`
+	CurrentBaseFees   *CurrentBaseFees         `json:"currentBaseFees,omitempty"`
+	ValidatorsStats   *ValidatorsStatsResponse `json:"validatorsStats,omitempty"`
+	CollectionTime    time.Time                `json:"collectionTime"`
 }
 
 // ToJSON converts AztecState to JSON
