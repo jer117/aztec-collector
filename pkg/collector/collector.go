@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aztec-collector/pkg/aztec"
+	"github.com/aztec-collector/pkg/alerting"
 	"github.com/aztec-collector/pkg/jsonrpc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -23,6 +23,7 @@ type Collector struct {
 	metrics    *Metrics
 	logger     *log.Logger
 	refService *ReferenceService
+	alerter    *alerting.Alerter
 
 	// State
 	mu          sync.RWMutex
@@ -63,6 +64,12 @@ func New(options ...func(*Collector)) (*Collector, error) {
 		}
 		c.refService = refService
 		c.logger.Printf("Reference service enabled: %s", refService.GetInfo().Source)
+	}
+
+	// Initialize alerter if enabled
+	if c.config.Alerting != nil && c.config.Alerting.Enabled {
+		c.alerter = alerting.NewAlerter(c.config.Alerting, c.logger)
+		c.logger.Printf("Alerting enabled with cooldown: %s", c.config.Alerting.Cooldown)
 	}
 
 	return c, nil
@@ -318,11 +325,28 @@ func (c *Collector) evaluateHealth(state *CollectorState) {
 	// Check if node is ready
 	if !state.Node.IsReady {
 		state.SetErrorCondition("node_not_ready")
+		c.sendAlert(alerting.Alert{
+			Type:    alerting.AlertNodeNotReady,
+			Level:   alerting.AlertLevelError,
+			Title:   "Node Not Ready",
+			Message: "The Aztec node is not ready to serve requests.",
+		})
+	} else if c.alerter != nil && c.alerter.IsAlertActive(alerting.AlertNodeNotReady) {
+		c.sendRecoveryAlert(alerting.AlertNodeNotReady, "Node is now ready")
 	}
 
 	// Check if node is syncing
 	if state.Node.IsSyncing {
 		state.SetWarnCondition("syncing")
+		c.sendAlert(alerting.Alert{
+			Type:        alerting.AlertNodeNotSynced,
+			Level:       alerting.AlertLevelWarning,
+			Title:       "Node Syncing",
+			Message:     "The Aztec node is currently syncing.",
+			BlockHeight: state.Chain.HeadHeight,
+		})
+	} else if c.alerter != nil && c.alerter.IsAlertActive(alerting.AlertNodeNotSynced) {
+		c.sendRecoveryAlert(alerting.AlertNodeNotSynced, "Node sync complete")
 	}
 
 	// Check blocks behind using reference height
@@ -330,8 +354,18 @@ func (c *Collector) evaluateHealth(state *CollectorState) {
 		if behind > c.config.Health.MaxBlocksBehind {
 			state.SetErrorCondition("blocks_behind")
 			state.AddMessage(HealthError, fmt.Sprintf("Node is %d blocks behind reference", behind))
+			c.sendAlert(alerting.Alert{
+				Type:         alerting.AlertBlocksBehind,
+				Level:        alerting.AlertLevelError,
+				Title:        "Node Falling Behind",
+				Message:      fmt.Sprintf("Node is %d blocks behind the reference (threshold: %d).", behind, c.config.Health.MaxBlocksBehind),
+				BlockHeight:  state.Chain.HeadHeight,
+				BlocksBehind: behind,
+			})
 		} else if behind > 0 {
 			state.SetWarnCondition("blocks_behind")
+		} else if c.alerter != nil && c.alerter.IsAlertActive(alerting.AlertBlocksBehind) {
+			c.sendRecoveryAlert(alerting.AlertBlocksBehind, "Node is now in sync")
 		}
 	}
 
@@ -340,6 +374,13 @@ func (c *Collector) evaluateHealth(state *CollectorState) {
 		if ahead > c.config.Health.MaxBlocksAhead {
 			state.SetWarnCondition("blocks_ahead")
 			state.AddMessage(HealthWarn, fmt.Sprintf("Node is %d blocks ahead of reference", ahead))
+			c.sendAlert(alerting.Alert{
+				Type:        alerting.AlertBlocksAhead,
+				Level:       alerting.AlertLevelWarning,
+				Title:       "Node Ahead of Reference",
+				Message:     fmt.Sprintf("Node is %d blocks ahead of the reference (threshold: %d).", ahead, c.config.Health.MaxBlocksAhead),
+				BlockHeight: state.Chain.HeadHeight,
+			})
 		}
 	}
 
@@ -348,7 +389,51 @@ func (c *Collector) evaluateHealth(state *CollectorState) {
 		gap := state.Chain.HeadHeight - state.Chain.ProvenHeight
 		if gap > 100 { // More than 100 blocks unproven
 			state.SetWarnCondition("proof_lag")
+			c.sendAlert(alerting.Alert{
+				Type:        alerting.AlertProofLag,
+				Level:       alerting.AlertLevelWarning,
+				Title:       "Proof Lag Detected",
+				Message:     fmt.Sprintf("There are %d unproven blocks (proven: %d, latest: %d).", gap, state.Chain.ProvenHeight, state.Chain.HeadHeight),
+				BlockHeight: state.Chain.HeadHeight,
+			})
 		}
+	}
+}
+
+// sendAlert sends an alert if alerting is enabled
+func (c *Collector) sendAlert(alert alerting.Alert) {
+	if c.alerter == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+	defer cancel()
+
+	if err := c.alerter.SendAlert(ctx, alert); err != nil {
+		c.logger.Printf("Failed to send alert: %v", err)
+	}
+}
+
+// sendRecoveryAlert sends a recovery notification
+func (c *Collector) sendRecoveryAlert(alertType alerting.AlertType, message string) {
+	if c.alerter == nil {
+		return
+	}
+
+	c.alerter.ClearAlert(alertType)
+
+	alert := alerting.Alert{
+		Type:    alerting.AlertRecovered,
+		Level:   alerting.AlertLevelInfo,
+		Title:   "Recovery: " + string(alertType),
+		Message: message,
+	}
+
+	ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+	defer cancel()
+
+	if err := c.alerter.SendAlert(ctx, alert); err != nil {
+		c.logger.Printf("Failed to send recovery alert: %v", err)
 	}
 }
 
