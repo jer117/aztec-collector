@@ -29,8 +29,9 @@ type Config struct {
 type ValidatorConfig struct {
 	// Enable validator monitoring
 	Enabled bool `yaml:"enabled" mapstructure:"enabled"`
-	// Your validator address to monitor (e.g., "0x1234...")
-	Address string `yaml:"address" mapstructure:"address"`
+	// Your validator addresses to monitor (e.g., ["0x1234...", "0x5678..."])
+	// Leave empty to monitor ALL validators
+	Addresses []string `yaml:"addresses" mapstructure:"addresses"`
 	// Alert on any missed attestation (currentStreak > 0)
 	AlertOnMissedAttestation bool `yaml:"alert_on_missed_attestation" mapstructure:"alert_on_missed_attestation"`
 	// Alert on any missed proposal (currentStreak > 0)
@@ -106,7 +107,7 @@ func DefaultConfig() *Config {
 		},
 		Validator: ValidatorConfig{
 			Enabled:                  false,
-			Address:                  "",
+			Addresses:                []string{},
 			AlertOnMissedAttestation: true,
 			AlertOnMissedProposal:    true,
 		},
@@ -198,7 +199,7 @@ func setViperDefaults(v *viper.Viper) {
 
 	// Validator monitoring defaults
 	v.SetDefault("validator.enabled", false)
-	v.SetDefault("validator.address", "")
+	v.SetDefault("validator.addresses", []string{})
 	v.SetDefault("validator.alert_on_missed_attestation", true)
 	v.SetDefault("validator.alert_on_missed_proposal", true)
 
@@ -287,8 +288,16 @@ func applyEnvOverrides(config *Config) {
 	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ENABLED"); v != "" {
 		config.Validator.Enabled = strings.ToLower(v) == "true" || v == "1"
 	}
-	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ADDRESS"); v != "" {
-		config.Validator.Address = v
+	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ADDRESSES"); v != "" {
+		// Parse comma-separated addresses
+		addrs := strings.Split(v, ",")
+		config.Validator.Addresses = make([]string, 0, len(addrs))
+		for _, addr := range addrs {
+			addr = strings.TrimSpace(addr)
+			if addr != "" {
+				config.Validator.Addresses = append(config.Validator.Addresses, addr)
+			}
+		}
 	}
 	if v := os.Getenv("AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_ATTESTATION"); v != "" {
 		config.Validator.AlertOnMissedAttestation = strings.ToLower(v) == "true" || v == "1"
