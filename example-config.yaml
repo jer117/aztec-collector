@@ -92,14 +92,15 @@ ref_service:
 #   timeout: 5s
 
 # Validator monitoring configuration
-# Monitor your validator for missed attestations/proposals
+# Monitor your validator(s) for missed attestations/proposals
 validator:
   # Enable validator monitoring
   # Env: AZTEC_COLLECTOR_VALIDATOR_ENABLED
   enabled: false
-  # Your validator address (lowercase)
-  # Env: AZTEC_COLLECTOR_VALIDATOR_ADDRESS
-  address: ""
+  # Your validator addresses to monitor (lowercase)
+  # Leave empty [] to monitor ALL validators
+  # Env: AZTEC_COLLECTOR_VALIDATOR_ADDRESSES (comma-separated)
+  addresses: []
   # Alert when attestations are missed
   # Env: AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_ATTESTATION
   alert_on_missed_attestation: true
@@ -107,10 +108,21 @@ validator:
   # Env: AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_PROPOSAL
   alert_on_missed_proposal: true
 
-# --- Example validator configuration ---
+# --- Example validator configurations ---
+
+# Monitor specific validators:
 # validator:
 #   enabled: true
-#   address: "0x04784a359ac474e8814a9f8fbf7590d2eb5267ee"
+#   addresses:
+#     - "0x04784a359ac474e8814a9f8fbf7590d2eb5267ee"
+#     - "0x0522c8388137f7a340cbbd663f2c4309e55c9f88"
+#   alert_on_missed_attestation: true
+#   alert_on_missed_proposal: true
+
+# Monitor ALL validators:
+# validator:
+#   enabled: true
+#   addresses: []  # empty = monitor all
 #   alert_on_missed_attestation: true
 #   alert_on_missed_proposal: true
 
@@ -226,6 +238,6 @@ alerting:
 #
 # Validator monitoring environment variables:
 #   - AZTEC_COLLECTOR_VALIDATOR_ENABLED=true
-#   - AZTEC_COLLECTOR_VALIDATOR_ADDRESS=0x04784a359ac474e8814a9f8fbf7590d2eb5267ee
+#   - AZTEC_COLLECTOR_VALIDATOR_ADDRESSES=0x04784a...,0x0522c8...  # comma-separated, or leave empty for ALL
 #   - AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_ATTESTATION=true
 #   - AZTEC_COLLECTOR_VALIDATOR_ALERT_ON_MISSED_PROPOSAL=true

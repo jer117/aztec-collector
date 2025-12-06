@@ -345,15 +345,26 @@ func (c *Collector) collectValidatorStats(state *CollectorState) error {
 
 	state.Aztec.ValidatorsStats = stats
 
-	// Check for our validator's missed attestations/proposals
-	if c.config.Validator.Address != "" && stats.Stats != nil {
-		// Normalize the address for lookup (lowercase)
-		addr := strings.ToLower(c.config.Validator.Address)
-		
-		if validatorStats, ok := stats.Stats[addr]; ok {
+	if stats.Stats == nil {
+		return nil
+	}
+
+	// If no specific addresses configured, monitor ALL validators
+	if len(c.config.Validator.Addresses) == 0 {
+		for _, validatorStats := range stats.Stats {
 			c.checkValidatorAlerts(validatorStats, stats.LastProcessedSlot)
-		} else {
-			c.logger.Printf("Validator %s not found in stats", c.config.Validator.Address)
+		}
+	} else {
+		// Monitor only the specified addresses
+		for _, configAddr := range c.config.Validator.Addresses {
+			// Normalize the address for lookup (lowercase)
+			addr := strings.ToLower(strings.TrimSpace(configAddr))
+			
+			if validatorStats, ok := stats.Stats[addr]; ok {
+				c.checkValidatorAlerts(validatorStats, stats.LastProcessedSlot)
+			} else {
+				c.logger.Printf("Validator %s not found in stats", configAddr)
+			}
 		}
 	}
 
